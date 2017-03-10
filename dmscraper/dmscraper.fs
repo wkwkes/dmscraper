@@ -19,16 +19,21 @@ let parseDate date =
 let getComment (node : HtmlNode) =
     let url = node.Descendants["a"] 
               |> Seq.map (fun (x:HtmlNode) -> x.Attribute("href").Value())
-              |> Seq.filter (fun x -> x.Contains("/books/"))
-              |> Seq.head
-    // printfn "%s" ("https://elk.bookmeter.com" + url)        
-    let data = HtmlDocument.Load("https://elk.bookmeter.com" + url)
-    let content = data.Descendants("div") 
-                  |> Seq.filter (fun (x:HtmlNode) -> x.HasAttribute("class", "read-book__content"))
-    printfn "---%A---" content
-    if Seq.isEmpty content then "a" 
-        else (Seq.head content).InnerText()               
-let getJson (node : HtmlNode) =
+              |> Seq.filter (fun x -> x.Contains("/reviews/"))
+    match Seq.isEmpty url with // 感想があるかどうか
+    | true -> ""
+    | false -> (let url = Seq.head url in
+               let data = HtmlDocument.Load("https://elk.bookmeter.com" + url) in
+               let content = data.Descendants("div")
+                             |> Seq.filter (fun (x:HtmlNode) -> 
+                             x.HasAttribute("class", "review__content review__content--default")) in
+               if Seq.isEmpty content then "" 
+               else (Seq.head content).InnerText())
+
+let getJson (group : HtmlNode) =
+    let node = group.Descendants["div"] 
+                   |>  Seq.filter (fun (x:HtmlNode) -> x.HasAttribute("class", "book__detail"))
+                   |> Seq.head
     let getDiv key = node.Descendants["div"]
                      |> Seq.filter(fun (x:HtmlNode) -> x.HasAttribute("class", key))
                      |> Seq.head
@@ -41,12 +46,13 @@ let getJson (node : HtmlNode) =
                |> Seq.head |> (fun x -> x.InnerText())           
     let page = getDiv "detail__page"
                |> (fun x -> x.InnerText() |> int)
-    let comment = getComment node           
+    let comment = getComment group           
     BookJson.Root(date, title, author, page, comment)                        
 
 [<EntryPoint>]
 let main argv =
-    let data = HtmlDocument.Load("https://elk.bookmeter.com/users/580549/books/read") 
-    let bookList = data.Descendants["div"] |>  Seq.filter (fun (x:HtmlNode) -> x.HasAttribute("class", "book__detail"))
-    do bookList |> Seq.head |> (getJson >> printfn "%A")
+    let data = HtmlDocument.Load("https://elk.bookmeter.com/users/580549/books/read")
+    let bookList = data.Descendants["li"] 
+                   |>  Seq.filter (fun (x:HtmlNode) -> x.HasAttribute("class", "group__book"))
+    do bookList |> Seq.iter (getJson >> (printfn "%A,"))
     0 // return an integer exit code
