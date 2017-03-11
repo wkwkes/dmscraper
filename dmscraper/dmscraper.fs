@@ -1,6 +1,8 @@
 module DmScraper
 
 open FSharp.Data
+open System
+open System.Threading
 open System.Text.RegularExpressions
 
 // type BookHtml = HtmlProvider< "https://elk.bookmeter.com/users/580549/books/read" >
@@ -32,6 +34,20 @@ let getComment (node : HtmlNode) =
                if Seq.isEmpty content then "" 
                else (Seq.head content).InnerText())
 
+// <a href="/books/222470">
+// <h1 class="inner__title">
+let getTitle (node : HtmlNode) = 
+    let url = node.Descendants["a"]
+              |> Seq.filter (fun (x:HtmlNode) -> x.Attribute("href").Value().Contains("/books/"))
+              |> Seq.head
+              |> fun x -> x.Attribute("href").Value()
+              |> (+) "https://elk.bookmeter.com"
+    let data = HtmlDocument.Load url
+    data.Descendants["h1"]
+    |> Seq.filter (fun (x:HtmlNode) -> x.HasAttribute("class", "inner__title"))
+    |> Seq.head
+    |> fun x -> x.InnerText()
+
 let getJson (group : HtmlNode) =
     let node = group.Descendants["div"] 
                    |>  Seq.filter (fun (x:HtmlNode) -> x.HasAttribute("class", "book__detail"))
@@ -44,6 +60,7 @@ let getJson (group : HtmlNode) =
                |> parseDate
     let title = getDiv "detail__title"
                |> (fun x -> x.InnerText())
+               |> (fun x -> if x.Contains("…") then getTitle node else x)
     let author = node.Descendants["li"] 
                |> Seq.head |> (fun x -> x.InnerText())           
     let page = getDiv "detail__page"
@@ -69,6 +86,8 @@ let rec scraper (url : string) old =
     match Seq.isEmpty _newUrl with
     | true -> old @ newList
     | false -> let newUrl = "https://elk.bookmeter.com" + (Seq.head _newUrl)
+               eprintfn "page %d done!" ((List.length old) / 20 + 1)
+               Thread.Sleep(5000)  // sleep
                scraper newUrl (old @ newList)
         
 
