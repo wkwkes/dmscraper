@@ -2,6 +2,7 @@ module DmScraper
 
 open FSharp.Data
 open System
+open System.IO
 open System.Threading
 open System.Text.RegularExpressions
 
@@ -67,13 +68,7 @@ let getJson (group : HtmlNode) =
                |> (fun x -> x.InnerText() |> int)
     let comment = getComment group           
     BookJson.Root(title, date, author, page, comment).ToString()               
-let pprinter p =
-    let rec aux = function
-        | [] -> ()
-        | [x] -> printfn "%s" x
-        | x::xs -> (printfn "%s," x; aux xs)
-    printfn "["; aux p; printfn "]"
-    
+
 let rec scraper (url : string) old = 
     let data = HtmlDocument.Load url in
     let newList = data.Descendants["li"]  // 20 件所得して処理
@@ -84,16 +79,26 @@ let rec scraper (url : string) old =
                 |> Seq.filter (fun (x : HtmlNode) -> x.HasAttribute("rel", "next"))
                 |> Seq.map (fun (x : HtmlNode) -> x.Attribute("href").Value())
     match Seq.isEmpty _newUrl with
-    | true -> old @ newList
+    | true -> eprintfn "page %d done" ((List.length old) / 20 + 1); old @ newList
     | false -> let newUrl = "https://elk.bookmeter.com" + (Seq.head _newUrl)
-               eprintfn "page %d done!" ((List.length old) / 20 + 1)
-               Thread.Sleep(5000)  // sleep
+               eprintfn "page %d done" ((List.length old) / 20 + 1)
+            //    Thread.Sleep(5000)  // sleep
                scraper newUrl (old @ newList)
-        
+
+let pprinter file p =
+    let rec aux = function
+        | [] -> ()
+        | [x] -> fprintfn file "%s" x
+        | x::xs -> (fprintfn file "%s," x; aux xs)
+    fprintf file "["; aux p; fprintfn file "]"        
 
 [<EntryPoint>]
 let main argv =
-    let url = "https://elk.bookmeter.com/users/580549/books/read"
+    eprintf "マイページのURL : "
+    let url = Console.ReadLine() + "/books/read"
+    eprintf "出力先(json) : "
+    let fileName = Console.ReadLine()
+    use file = System.IO.File.CreateText fileName
     let bookList = scraper url []
-    do bookList |> pprinter
+    do bookList |> pprinter file
     0 // return an integer exit code
