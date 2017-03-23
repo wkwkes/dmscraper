@@ -18,6 +18,17 @@ let parseDate date =
         [|int year; int month; int day|]
     | _ -> [|-1; -1; -1|]
 
+let editComment s = 
+//   printf "s: %A" s; printfn " id: %A" id
+  let re = ".*content_tag\":\"([^\"]*)\",\"(.*)"
+  let (|Regex|_|) pattern input =
+    let m = Regex.Match(input, pattern)
+    if m.Success then Some (List.item 1 [ for g in m.Groups -> g.Value ])
+    else None
+  match s with 
+  | Regex re ss -> ss
+  | _ -> "regexp fail"
+
 let getComment (node : HtmlNode) =
     let url = node.Descendants["a"] 
               |> Seq.map (fun (x:HtmlNode) -> x.Attribute("href").Value())
@@ -28,9 +39,9 @@ let getComment (node : HtmlNode) =
                let data = HtmlDocument.Load("https://elk.bookmeter.com" + url) in
                let content = data.Descendants["div"]
                              |> Seq.filter (fun (x:HtmlNode) -> 
-                             x.HasAttribute("class", "review__content review__content--default") || x.HasAttribute("class", "review__content review__content--netabare")) in
+                             x.HasAttribute("data-redirect-path-after-delete", "/reviews")) in
                if Seq.isEmpty content then "" 
-               else (Seq.head content).InnerText())
+               else editComment ((Seq.head content).Attribute("data-resource").Value()) (*url.[9..]*) )
 
 let getTitle (node : HtmlNode) =
     let url = node.Descendants["a"]
@@ -89,3 +100,5 @@ let main argv =
     let bookList = scraper url []
     do bookList |> pprinter file
     0 // return an integer exit code
+
+    
