@@ -14,7 +14,7 @@ let parseDate date =
         if m.Success then Some(List.tail [ for g in m.Groups -> g.Value ])
         else None
     match date with
-    | Regex @"([0-9]{4})年([0-9]{2})月([0-9]{2})日" [ year; month; day ] ->
+    | Regex @"([0-9]{4})/([0-9]{2})/([0-9]{2})" [ year; month; day ] ->
         [|int year; int month; int day|]
     | _ -> [|-1; -1; -1|]
 
@@ -32,7 +32,7 @@ let editComment s =
 let getComment (node : HtmlNode) =
     let url = node.Descendants["a"] 
               |> Seq.map (fun (x:HtmlNode) -> x.Attribute("href").Value())
-              |> Seq.filter (fun x -> x.Contains("/reviews/"))
+              |> Seq.filter (fun x -> x.Contains("/reviews/") && x.Contains("/users/"))
     match Seq.isEmpty url with // 感想があるかどうか
     | true -> ""
     | false -> (let url = Seq.head url in
